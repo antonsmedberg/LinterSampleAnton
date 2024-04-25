@@ -1,7 +1,6 @@
 name: Super-Linter
 
-# Triggerar detta workflow vid varje 'push' och 'pull request' till 'main' grenen.
-# Detta säkerställer att kodkvalitetskontroller sker kontinuerligt.
+# Det här GitHub Actions-workflowet aktiveras vid varje 'push' och 'pull request' till 'main'-grenen. Det säkerställer att kvalitetskontroller utförs automatiskt för att upprätthålla hög kodstandard.
 on:
   push:
   pull_request:
@@ -11,20 +10,19 @@ on:
 jobs:
   super-lint:
     name: Lint kodbasen
-    # Kör detta jobb på en virtuell Ubuntu-maskin. 'ubuntu-latest' hänvisar till senaste tillgängliga Ubuntu-version.
+    # Detta jobb körs på den senaste versionen av Ubuntu, vilket garanterar hög kompatibilitet och prestanda för lint-processen.
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
-      # Definierar en matris för att köra linter på två versioner av Node.js (14.x och 16.x).
-      # Detta testar kompatibilitet över flera miljöer och Node.js-versioner.
+      # Använder en matris för att testa kod i olika versioner av Node.js. Detta breddar testomfånget och säkerställer kompatibilitet över olika miljöer.
       matrix:
         node-version: [14.x, 16.x]
 
     steps:
       - name: Hämta koden
         uses: actions/checkout@v4
-        # Denna steg använder 'checkout' action för att klona koden från GitHub-repositoriet.
+        # Detta steg klonar koden från ditt GitHub-repositorium till runner-maskinen för att möjliggöra åtkomst för Super-Linter.
 
       - name: Cache Node modules
         uses: actions/cache@v3
@@ -33,17 +31,17 @@ jobs:
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
-        # Cachar npm moduler för att påskynda installationsprocessen genom att återanvända tidigare nedladdade moduler.
+        # Cachar Node.js-moduler för att snabba upp byggnadsprocessen genom att återanvända tidigare nedladdade moduler.
 
       - name: Använd Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
-        # Denna steg ställer in Node.js-versionen enligt den definierade matrisen, vilket möjliggör testning över olika Node.js-versioner.
+        # Konfigurerar GitHub-runner med specifika Node.js-versioner specificerade i testmatrisen, vilket säkerställer att testerna är relevanta.
 
       - name: Installera beroenden
         run: npm install
-        # Kör 'npm install' för att installera nödvändiga beroenden som definierats i 'package-lock.json'.
+        # Installerar npm-paket som är nödvändiga för att Super-Linter ska kunna köra korrekt och effektivt.
 
       - name: Kör Super-Linter
         uses: github/super-linter@v4
@@ -51,19 +49,19 @@ jobs:
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VALIDATE_ALL_CODEBASE: false
-        # Kör Super-Linter som granskar kodens kvalitet och standard över flera programmeringsspråk och format.
+        # Använder Super-Linter för att granska kodbasen för syntax- och stilfel. Konfigurationen är inställd för att endast validera ändrade filer.
 
       - name: Ladda upp linter-resultat
         uses: actions/upload-artifact@v3
         with:
           name: linter-reports
           path: /github/workspace/superlinter.report.json
-        # Laddar upp linter-rapporterna som genereras av Super-Linter för granskning.
+        # Detta steg sparar linter-rapporterna som en artefakt, vilket gör dem tillgängliga för granskning efter att arbetsflödet har körts.
 
       - name: Skapa linter-status
         if: failure()
         run: echo "Linter detected issues. Check the report for details."
-        # Detta steg körs endast om linter-processen misslyckas. Det informerar användare att kontrollera linter-rapporten.
+        # Ett enkelt steg som körs om linterprocessen misslyckas, för att informera utvecklare om att fel har upptäckts.
 
       - name: Skicka notifiering
         if: failure()
@@ -71,7 +69,7 @@ jobs:
         with:
           message: "Linting failed, please review the linter reports."
           token: ${{ secrets.SLACK_TOKEN }}
-        # Skickar notifieringar till exempel via Slack om linter-processen misslyckas, vilket kräver omedelbar uppmärksamhet.
+        # Skickar en notifiering, exempelvis till Slack, om linterprocessen inte lyckas. Detta gör att teamet snabbt kan identifiera och åtgärda problem.
 
 
 
