@@ -1,25 +1,63 @@
 name: Super-Linter
 
-# Triggerar workflow på alla push till repositoriet
-on: push
+# Triggerar workflow på alla push till repositoriet samt pull requests till huvudgrenen
+on:
+  push:
+  pull_request:
+    branches:
+      - main
 
 jobs:
   super-lint:
     name: Lint kodbasen
     # Kör jobbet på en virtuell Ubuntu-maskin
     runs-on: ubuntu-latest
-    
+
+    strategy:
+      matrix:
+        node-version: [14.x, 16.x]
+        # Kör linter på flera versioner av Node.js för bättre kompatibilitet
+
     steps:
       - name: Hämta koden
         uses: actions/checkout@v4
         # Hämtar koden från GitHub repositoryt
+
+      - name: Cache Node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+        # Cachar npm moduler för snabbare byggnader
+
+      - name: Använd Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+        # Ställer in Node.js-version baserat på matrix
+
+      - name: Installera beroenden
+        run: npm install
+        # Installerar projektberoenden
 
       - name: Kör Super-Linter
         uses: github/super-linter@v4
         env:
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: false
+          # Validera endast ändrade filer för effektivitet
         # Kör Super-Linter för att granska koden
-        # Använder GitHub token för att hantera tillåtelser
+
+      - name: Ladda upp linter-resultat
+        uses: actions/upload-artifact@v3
+        with:
+          name: linter-reports
+          path: /github/workspace/superlinter.report.json
+        # Laddar upp linter-rapporterna för granskning
+
+
 
 
