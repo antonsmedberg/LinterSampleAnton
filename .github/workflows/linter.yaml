@@ -23,8 +23,7 @@ jobs:
         run: echo "::set-output name=key::$(echo ${{ runner.os }}-node-${{ matrix.node-version }}-$(hashFiles('**/package-lock.json')))"
 
       - name: Spara cache-nyckel till Environment File
-        run: |
-          echo "CACHE_KEY=$(cat cache_key.txt)" >> $GITHUB_ENV
+        run: echo "CACHE_KEY=$(cat cache_key.txt)" >> $GITHUB_ENV
 
       - name: Cache Node modules
         uses: actions/cache@v4
@@ -47,7 +46,8 @@ jobs:
     steps:
       - name: Skicka startnotifiering till Discord
         run: |
-          curl -X POST -H 'Content-type: application/json' --data '{"content":"Startar lint och test för push till main eller pull request."}' ${{ secrets.DISCORD_WEBHOOK_URL }}
+          CONTENT=$(if [[ ${{ needs.lint-and-test.result }} == 'failure' ]]; then echo 'Linting eller testning misslyckades. Se rapporten för detaljer.'; else echo 'Allt gick bra. Ingen linter eller testningsfel hittades!'; fi)
+          curl -X POST -H 'Content-type: application/json' --data "{\"content\":\"$CONTENT\"}" ${{ secrets.DISCORD_WEBHOOK_URL }}
 
       - name: Använd Node.js
         uses: actions/setup-node@v3
@@ -80,7 +80,6 @@ jobs:
       - name: Skicka e-post notifiering om fel
         if: ${{ needs.lint-and-test.result == 'failure' }}
         run: |
-          # Skicka e-post med felmeddelande
           echo "Linting eller testning misslyckades. Se rapporten för detaljer." | mail -s "Super-Linter - Fel påträffade" -a "From: GitHub Actions <noreply@github.com>" ${{ secrets.EMAIL_ADDRESS }}
 
       - name: Skicka Discord notifiering om resultat
@@ -99,5 +98,6 @@ jobs:
           git add -A
           git commit -m "Automatiska linter-fixar" --allow-empty
           git push
+
 
 
