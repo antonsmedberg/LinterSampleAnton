@@ -68,12 +68,25 @@ jobs:
     if: always()
 
     steps:
-      - name: Skicka notifiering
+      - name: Skicka e-post notifiering
         if: ${{ needs.lint-and-test.result == 'failure' }}
-        uses: some/notification-action@v1
+        uses: dawidd6/action-send-mail@v3
         with:
-          message: "Linting eller testning misslyckades, se rapporten för detaljer."
-          token: ${{ secrets.SLACK_TOKEN }}
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "Super-Linter - Fel påträffade"
+          body: "Linting eller testning misslyckades. Se rapporten för detaljer."
+          to: anton@smedberg.eu
+          from: GitHub Actions <noreply@github.com>
+
+      - name: Skicka Discord notifiering
+        if: ${{ needs.lint-and-test.result == 'failure' }}
+        uses: DiscordWebhooks/DiscordWebhook@v1
+        with:
+          url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          content: "Linting eller testning misslyckades. Se rapporten för detaljer."
 
       - name: Auto-korrigera och Commit
         if: ${{ needs.lint-and-test.result == 'success' }}
@@ -84,6 +97,7 @@ jobs:
           git add -A
           git commit -m "Automatiska linter-fixar" --allow-empty
           git push
+
 
 
 
