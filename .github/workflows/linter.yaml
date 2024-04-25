@@ -1,6 +1,7 @@
 name: Super-Linter
 
-# Triggerar workflow på alla push till repositoriet samt pull requests till huvudgrenen
+# Triggerar detta workflow vid varje 'push' och 'pull request' till 'main' grenen.
+# Detta säkerställer att kodkvalitetskontroller sker kontinuerligt.
 on:
   push:
   pull_request:
@@ -10,19 +11,20 @@ on:
 jobs:
   super-lint:
     name: Lint kodbasen
-    # Kör jobbet på en virtuell Ubuntu-maskin
+    # Kör detta jobb på en virtuell Ubuntu-maskin. 'ubuntu-latest' hänvisar till senaste tillgängliga Ubuntu-version.
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
+      # Definierar en matris för att köra linter på två versioner av Node.js (14.x och 16.x).
+      # Detta testar kompatibilitet över flera miljöer och Node.js-versioner.
       matrix:
         node-version: [14.x, 16.x]
-        # Kör linter på flera versioner av Node.js för bättre kompatibilitet
 
     steps:
       - name: Hämta koden
         uses: actions/checkout@v4
-        # Hämtar koden från GitHub repositoryt
+        # Denna steg använder 'checkout' action för att klona koden från GitHub-repositoriet.
 
       - name: Cache Node modules
         uses: actions/cache@v3
@@ -31,17 +33,17 @@ jobs:
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
-        # Cachar npm moduler för snabbare byggnader
+        # Cachar npm moduler för att påskynda installationsprocessen genom att återanvända tidigare nedladdade moduler.
 
       - name: Använd Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
-        # Ställer in Node.js-version baserat på matrix
+        # Denna steg ställer in Node.js-versionen enligt den definierade matrisen, vilket möjliggör testning över olika Node.js-versioner.
 
       - name: Installera beroenden
         run: npm install
-        # Installerar projektberoenden
+        # Kör 'npm install' för att installera nödvändiga beroenden som definierats i 'package-lock.json'.
 
       - name: Kör Super-Linter
         uses: github/super-linter@v4
@@ -49,19 +51,19 @@ jobs:
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VALIDATE_ALL_CODEBASE: false
-        # Kör Super-Linter för att granska koden
+        # Kör Super-Linter som granskar kodens kvalitet och standard över flera programmeringsspråk och format.
 
       - name: Ladda upp linter-resultat
         uses: actions/upload-artifact@v3
         with:
           name: linter-reports
           path: /github/workspace/superlinter.report.json
-        # Laddar upp linter-rapporterna för granskning
+        # Laddar upp linter-rapporterna som genereras av Super-Linter för granskning.
 
       - name: Skapa linter-status
         if: failure()
         run: echo "Linter detected issues. Check the report for details."
-        # Informerar om linter upptäcker problem
+        # Detta steg körs endast om linter-processen misslyckas. Det informerar användare att kontrollera linter-rapporten.
 
       - name: Skicka notifiering
         if: failure()
@@ -69,7 +71,8 @@ jobs:
         with:
           message: "Linting failed, please review the linter reports."
           token: ${{ secrets.SLACK_TOKEN }}
-        # Skicka notifieringar vid fel
+        # Skickar notifieringar till exempel via Slack om linter-processen misslyckas, vilket kräver omedelbar uppmärksamhet.
+
 
 
 
