@@ -84,7 +84,7 @@ jobs:
           password: ${{ secrets.EMAIL_PASSWORD }}
           subject: "Super-Linter - Fel påträffade"
           body: "Linting eller testning misslyckades. Se rapporten för detaljer."
-          to: anton@smedberg.eu
+          to: ${{ secrets.EMAIL_ADDRESS }}
           from: GitHub Actions <noreply@github.com>
 
       - name: Skicka Discord notifiering om resultat
