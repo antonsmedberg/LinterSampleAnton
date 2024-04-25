@@ -41,6 +41,12 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
+      - name: Skicka startnotifiering till Discord
+        uses: DiscordWebhooks/DiscordWebhook@v1
+        with:
+          url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          content: 'Startar lint och test för push till main eller pull request.'
+
       - name: Använd Node.js
         uses: actions/setup-node@v3
         with:
@@ -88,6 +94,12 @@ jobs:
           url: ${{ secrets.DISCORD_WEBHOOK_URL }}
           content: "Linting eller testning misslyckades. Se rapporten för detaljer."
 
+      - name: Skicka avslutningsnotifiering till Discord
+        uses: DiscordWebhooks/DiscordWebhook@v1
+        with:
+          url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          content: 'GitHub Actions arbetsflöde slutfört. Kontrollera resultaten!'
+
       - name: Auto-korrigera och Commit
         if: ${{ needs.lint-and-test.result == 'success' }}
         run: |
@@ -97,12 +109,3 @@ jobs:
           git add -A
           git commit -m "Automatiska linter-fixar" --allow-empty
           git push
-
-
-
-
-
-
-
-
-
