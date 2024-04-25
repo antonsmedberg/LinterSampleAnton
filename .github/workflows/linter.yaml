@@ -1,6 +1,5 @@
 name: Super-Linter
 
-# Trigger workflow vid push till main-grenen eller pull requests till main-grenen.
 on:
   push:
     branches:
@@ -10,55 +9,74 @@ on:
       - main
 
 jobs:
-  super-lint:
-    name: Lint kodbasen
-    # Kör på olika operativsystem för att säkerställa kompatibilitet.
-    runs-on: ${{ matrix.os }}
-    env:
-        # Definiera NODE_ENV baserat på git-referensen för att skilja mellan utveckling och produktion.
-        NODE_ENV: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+  setup:
+    name: Förbereda arbetsmiljön
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
 
+    steps:
+      - name: Hämta koden
+        uses: actions/checkout@v4
+
+      - name: Generera Cache Nyckel
+        id: cache-key
+        run: echo "::set-output name=key::$(echo ${{ runner.os }}-node-${{ matrix.node-version }}-$(hashFiles('**/package-lock.json')))"
+
+      - name: Cache Node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ steps.cache-key.outputs.key }}
+          restore-keys: ${{ runner.os }}-node-
+
+  lint-and-test:
+    name: Lint och Test
+    needs: setup
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      # Definiera en matris av Node.js-versioner och operativsystem för att testa över olika miljöer.
       matrix:
         node-version: [14.x, 16.x, 20.x]
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - name: Hämta koden
-        # Använd actions/checkout för att klona koden från GitHub-repositoriet.
-        uses: actions/checkout@v4
-
-      - name: Cache Node modules
-        # Cachar npm-moduler för att förbättra prestanda genom att återanvända tidigare nedladdade moduler.
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          # Cachen nyckel innehåller operativsystem, Node.js-version och hash av package-lock.json för unik identifiering.
-          key: ${{ runner.os }}-node-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
       - name: Använd Node.js
-        # Konfigurera Node.js-version baserat på matrisens node-version.
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
 
       - name: Installera beroenden
-        # Installera npm-paket för att förbereda miljön för linting.
         run: npm install
 
       - name: Kör Super-Linter
-        # Använd super-linter för att granska kodens kvalitet och efterlevnad av stilguider.
         uses: github/super-linter@v4
         env:
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VALIDATE_ALL_CODEBASE: false
 
-      - name: Auto-korrigera lätta fel och commit
-        # Kör automatiska korrigeringar av lätta fel och gör en commit av ändringarna.
+      - name: Kör enhetstester
+        run: npm test
+
+      - name: Kör CodeQL
+        uses: github/codeql-action/analyze@v1
+
+  notify-and-finalize:
+    name: Notifiering och Finalisering
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Skicka notifiering
+        if: ${{ needs.lint-and-test.result == 'failure' }}
+        uses: some/notification-action@v1
+        with:
+          message: "Linting eller testning misslyckades, se rapporten för detaljer."
+          token: ${{ secrets.SLACK_TOKEN }}
+
+      - name: Auto-korrigera och Commit
+        if: ${{ needs.lint-and-test.result == 'success' }}
         run: |
           npm run lint-fix
           git config --global user.name 'GitHub Actions'
@@ -66,38 +84,6 @@ jobs:
           git add -A
           git commit -m "Automatiska linter-fixar" --allow-empty
           git push
-      - name: Säkerhetskontroll av beroenden
-        # Utför en säkerhetsgranskning av npm-paket för att identifiera sårbarheter.
-        run: npm audit
-
-      - name: Kör CodeQL
-        # Använd CodeQL för att analysera kodkvalitet och identifiera säkerhetsproblem.
-        uses: github/codeql-action/analyze@v1
-
-      - name: Ladda upp linter-resultat
-        # Ladda upp linter-rapporter som en artefakt för senare granskning och analys.
-        uses: actions/upload-artifact@v3
-        with:
-          name: linter-reports
-          path: /github/workspace/superlinter.report.json
-
-      - name: Analysera linter-resultat
-        # Anpassat skript för att skapa en sammanfattad rapport av linter-fel.
-        run: node analyze-linter-results.js
-        # Detta steg kräver att du har ett skript som heter 'analyze-linter-results.js' i din repo.
-
-      - name: Skapa linter-status
-        # Skapa ett meddelande om att linter hittade problem om det finns fel.
-        if: failure()
-        run: echo "Linter detected issues. Check the report for details."
-
-      - name: Skicka notifiering
-        # Skicka notifiering om att lintningen misslyckades med en länk till arbetsflödet för mer detaljer.
-        if: failure()
-        uses: some/notification-action@v1
-        with:
-          message: "Linting failed, please review the linter reports. Visit ${{ github.event.workflow_run.html_url }} for more details."
-          token: ${{ secrets.SLACK_TOKEN }}
 
 
 
