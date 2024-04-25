@@ -13,20 +13,19 @@ jobs:
   setup:
     name: Förbereda arbetsmiljön
     runs-on: ubuntu-latest
-    outputs:
-      cache-key: ${{ steps.cache-key.outputs.key }}
 
     steps:
-      # Hämta koden från huvudgrenen
       - name: Hämta koden
         uses: actions/checkout@v4
 
-      # Generera en cache-nyckel baserad på koden och Node.js-versionen
       - name: Generera Cache Nyckel
         id: cache-key
         run: echo "::set-output name=key::$(echo ${{ runner.os }}-node-${{ matrix.node-version }}-$(hashFiles('**/package-lock.json')))"
 
-      # Cache Node modules för att minska byggtiden
+      - name: Spara cache-nyckel till Environment File
+        run: |
+          echo "CACHE_KEY=$(cat cache_key.txt)" >> $GITHUB_ENV
+
       - name: Cache Node modules
         uses: actions/cache@v4
         with:
@@ -46,35 +45,27 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      # Skicka en startnotifiering till Discord
       - name: Skicka startnotifiering till Discord
-        uses: DiscordWebhooks/DiscordWebhook@v1
-        with:
-          url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          content: 'Startar lint och test för push till main eller pull request.'
+        run: |
+          curl -X POST -H 'Content-type: application/json' --data '{"content":"Startar lint och test för push till main eller pull request."}' ${{ secrets.DISCORD_WEBHOOK_URL }}
 
-      # Installera rätt version av Node.js
       - name: Använd Node.js
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
 
-      # Installera beroenden
       - name: Installera beroenden
         run: npm install
 
-      # Kör Super-Linter för att utföra lintning på koden
       - name: Kör Super-Linter
         uses: github/super-linter@v4
         env:
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Kör enhetstester
       - name: Kör enhetstester
         run: npm test
 
-      # Kör CodeQL för säkerhetsanalys
       - name: Kör CodeQL
         uses: github/codeql-action/analyze@v1
 
@@ -86,29 +77,19 @@ jobs:
     if: always()
 
     steps:
-      # Skicka e-post notifiering om fel
       - name: Skicka e-post notifiering om fel
         if: ${{ needs.lint-and-test.result == 'failure' }}
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          username: ${{ secrets.EMAIL_USERNAME }}
-          password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "Super-Linter - Fel påträffade"
-          body: "Linting eller testning misslyckades. Se rapporten för detaljer."
-          to: ${{ secrets.EMAIL_ADDRESS }}
-          from: GitHub Actions <noreply@github.com>
+        run: |
+          # Skicka e-post med felmeddelande
+          echo "Linting eller testning misslyckades. Se rapporten för detaljer." | mail -s "Super-Linter - Fel påträffade" -a "From: GitHub Actions <noreply@github.com>" ${{ secrets.EMAIL_ADDRESS }}
 
-      # Skicka Discord notifiering om resultatet av lintning och tester
       - name: Skicka Discord notifiering om resultat
-        uses: DiscordWebhooks/DiscordWebhook@v1
+        uses: DiscordWebhooks/DiscordWebhook@1.x
         with:
           url: ${{ secrets.DISCORD_WEBHOOK_URL }}
           content: > 
               ${{ needs.lint-and-test.result == 'failure' && 'Linting eller testning misslyckades. Se rapporten för detaljer.' || 'Allt gick bra. Ingen linter eller testningsfel hittades!' }}
 
-      # Auto-korrigera och commit om lintning och tester lyckas
       - name: Auto-korrigera och Commit om framgång
         if: ${{ needs.lint-and-test.result == 'success' }}
         run: |
@@ -118,4 +99,5 @@ jobs:
           git add -A
           git commit -m "Automatiska linter-fixar" --allow-empty
           git push
+
 
