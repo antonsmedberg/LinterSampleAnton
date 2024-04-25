@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       # Definiera en matris av Node.js-versioner och operativsystem för att testa över olika miljöer.
       matrix:
-        node-version: [14.x, 16.x]
+        node-version: [14.x, 16.x, 20.x]
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     env:
@@ -99,6 +99,7 @@ jobs:
         with:
           message: "Linting failed, please review the linter reports. Visit ${{ github.event.workflow_run.html_url }} for more details."
           token: ${{ secrets.SLACK_TOKEN }}
+
 
 
 
