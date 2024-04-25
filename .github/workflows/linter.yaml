@@ -74,7 +74,7 @@ jobs:
     if: always()
 
     steps:
-      - name: Skicka e-post notifiering
+      - name: Skicka e-post notifiering om fel
         if: ${{ needs.lint-and-test.result == 'failure' }}
         uses: dawidd6/action-send-mail@v3
         with:
@@ -87,20 +87,13 @@ jobs:
           to: anton@smedberg.eu
           from: GitHub Actions <noreply@github.com>
 
-      - name: Skicka Discord notifiering
-        if: ${{ needs.lint-and-test.result == 'failure' }}
+      - name: Skicka Discord notifiering om resultat
         uses: DiscordWebhooks/DiscordWebhook@v1
         with:
           url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          content: "Linting eller testning misslyckades. Se rapporten för detaljer."
+          content: ${{ needs.lint-and-test.result == 'failure' && "Linting eller testning misslyckades. Se rapporten för detaljer." || "Allt gick bra. Ingen linter eller testningsfel hittades!" }}
 
-      - name: Skicka avslutningsnotifiering till Discord
-        uses: DiscordWebhooks/DiscordWebhook@v1
-        with:
-          url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          content: 'GitHub Actions arbetsflöde slutfört. Kontrollera resultaten!'
-
-      - name: Auto-korrigera och Commit
+      - name: Auto-korrigera och Commit om framgång
         if: ${{ needs.lint-and-test.result == 'success' }}
         run: |
           npm run lint-fix
@@ -109,3 +102,4 @@ jobs:
           git add -A
           git commit -m "Automatiska linter-fixar" --allow-empty
           git push
+
