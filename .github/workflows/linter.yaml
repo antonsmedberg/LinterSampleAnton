@@ -3,6 +3,8 @@ name: Super-Linter
 # Trigger workflow vid push till main-grenen eller pull requests till main-grenen.
 on:
   push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -38,7 +40,6 @@ jobs:
           key: ${{ runner.os }}-node-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
-
       - name: Använd Node.js
         # Konfigurera Node.js-version baserat på matrisens node-version.
         uses: actions/setup-node@v3
@@ -66,7 +67,6 @@ jobs:
           git add -A
           git commit -m "Automatiska linter-fixar" --allow-empty
           git push
-
       - name: Säkerhetskontroll av beroenden
         # Utför en säkerhetsgranskning av npm-paket för att identifiera sårbarheter.
         run: npm audit
@@ -99,6 +99,7 @@ jobs:
         with:
           message: "Linting failed, please review the linter reports. Visit ${{ github.event.workflow_run.html_url }} for more details."
           token: ${{ secrets.SLACK_TOKEN }}
+
 
 
 
