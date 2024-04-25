@@ -105,8 +105,8 @@ jobs:
         uses: DiscordWebhooks/DiscordWebhook@v1
         with:
           url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          content: |
-            ${{ needs.lint-and-test.result == 'failure' && "Linting eller testning misslyckades. Se rapporten för detaljer." || "Allt gick bra. Ingen linter eller testningsfel hittades!" }}
+          content: > 
+            ${{ needs.lint-and-test.result == 'failure' && Linting eller testning misslyckades. Se rapporten för detaljer. || Allt gick bra. Ingen linter eller testningsfel hittades! }}
 
       # Auto-korrigera och commit om lintning och tester lyckas
       - name: Auto-korrigera och Commit om framgång
