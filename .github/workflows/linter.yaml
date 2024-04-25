@@ -1,6 +1,6 @@
 name: Super-Linter
 
-# Definierar när workflow ska triggas. I detta fall vid push till 'main'-grenen och vid pull requests till 'main'.
+# Trigger workflow vid push till main-grenen eller pull requests till main-grenen.
 on:
   push:
   pull_request:
@@ -10,48 +10,55 @@ on:
 jobs:
   super-lint:
     name: Lint kodbasen
-    # Definierar att jobbet ska köras på senaste Ubuntu-versionen för maximal kompatibilitet.
-    runs-on: ubuntu-latest
+    # Kör på olika operativsystem för att säkerställa kompatibilitet.
+    runs-on: ${{ matrix.os }}
 
-    # Strategy-blocket hanterar hur jobben ska köras parallellt och konfigurationer för felhantering.
     strategy:
-      fail-fast: false  # Fortsätter köra andra jobb även om ett misslyckas.
+      fail-fast: false
+      # Definiera en matris av Node.js-versioner och operativsystem för att testa över olika miljöer.
       matrix:
-        node-version: [14.x, 16.x]  # Definierar en matris för Node.js-versioner för att testa kompatibilitet över versioner.
+        node-version: [14.x, 16.x]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    env:
+      # Definiera NODE_ENV baserat på git-referensen för att skilja mellan utveckling och produktion.
+      NODE_ENV: ${{ github.ref == 'refs/heads/main' ? 'production' : 'development' }}
 
     steps:
       - name: Hämta koden
+        # Använd actions/checkout för att klona koden från GitHub-repositoriet.
         uses: actions/checkout@v4
-        # Använder 'actions/checkout' för att klona git-repositoriet till GitHub Actions-runner.
 
       - name: Cache Node modules
+        # Cachar npm-moduler för att förbättra prestanda genom att återanvända tidigare nedladdade moduler.
         uses: actions/cache@v3
         with:
           path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          # Cachen nyckel innehåller operativsystem, Node.js-version och hash av package-lock.json för unik identifiering.
+          key: ${{ runner.os }}-node-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-node-
-        # Cachar npm moduler för att snabba upp byggprocessen genom att undvika onödiga nedladdningar.
 
       - name: Använd Node.js
+        # Konfigurera Node.js-version baserat på matrisens node-version.
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
-        # Ställer in Node.js versioner enligt definierad matris för att säkerställa att miljön är korrekt.
 
       - name: Installera beroenden
+        # Installera npm-paket för att förbereda miljön för linting.
         run: npm install
-        # Installerar projektberoenden från npm för att förbereda miljön för lintning.
 
       - name: Kör Super-Linter
+        # Använd super-linter för att granska kodens kvalitet och efterlevnad av stilguider.
         uses: github/super-linter@v4
         env:
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VALIDATE_ALL_CODEBASE: false
-        # Kör Super-Linter för att granska kodens kvalitet och efterlevnad av stilguider.
 
       - name: Auto-korrigera lätta fel och commit
+        # Kör automatiska korrigeringar av lätta fel och gör en commit av ändringarna.
         run: |
           npm run lint-fix
           git config --global user.name 'GitHub Actions'
@@ -59,32 +66,39 @@ jobs:
           git add -A
           git commit -m "Automatiska linter-fixar" --allow-empty
           git push
-        # Detta steg korrigerar automatiskt fixbara fel och gör en commit av ändringarna.
 
       - name: Säkerhetskontroll av beroenden
+        # Utför en säkerhetsgranskning av npm-paket för att identifiera sårbarheter.
         run: npm audit
-        # Utför en säkerhetsgranskning av npm-paket för att identifiera och rapportera sårbarheter.
+
+      - name: Kör CodeQL
+        # Använd CodeQL för att analysera kodkvalitet och identifiera säkerhetsproblem.
+        uses: github/codeql-action/analyze@v1
 
       - name: Ladda upp linter-resultat
+        # Ladda upp linter-rapporter som en artefakt för senare granskning och analys.
         uses: actions/upload-artifact@v3
         with:
           name: linter-reports
           path: /github/workspace/superlinter.report.json
-        # Sparar linter-rapporterna som en artefakt för senare granskning och analys.
+
+      - name: Analysera linter-resultat
+        # Anpassat skript för att skapa en sammanfattad rapport av linter-fel.
+        run: node analyze-linter-results.js
+        # Detta steg kräver att du har ett skript som heter 'analyze-linter-results.js' i din repo.
 
       - name: Skapa linter-status
+        # Skapa ett meddelande om att linter hittade problem om det finns fel.
         if: failure()
         run: echo "Linter detected issues. Check the report for details."
-        # Informerar om att linter hittade problem som behöver granskas.
 
       - name: Skicka notifiering
+        # Skicka notifiering om att lintningen misslyckades med en länk till arbetsflödet för mer detaljer.
         if: failure()
         uses: some/notification-action@v1
         with:
           message: "Linting failed, please review the linter reports. Visit ${{ github.event.workflow_run.html_url }} for more details."
           token: ${{ secrets.SLACK_TOKEN }}
-        # Skickar en detaljerad notifiering om att lintningen misslyckades, med en länk till arbetsflödet för djupare analys.
-
 
 
 
